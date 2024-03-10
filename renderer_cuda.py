@@ -241,31 +241,40 @@ class CUDARenderer(GaussianRenderBase):
         rasterizer = GaussianRasterizer(raster_settings=raster_settings)
         # means2D = torch.zeros_like(self.gaussians.xyz, dtype=self.gaussians.xyz.dtype, requires_grad=False, device="cuda")
         with torch.no_grad():
-            color, radii, depth, opacity, n_touched = rasterizer(
+            if self.render_mode != -1:
+                sh = self.gaussians.sh
+                colors = None
+            else:
+                sh = None
+                dists = torch.norm(self.gaussians.xyz - self.raster_settings["campos"], dim=1)
+                grays = 1 - ((dists / 30).clamp(0, 1) ** (1 / 1.5))
+                colors = apply_colormap(grays, cm_data_dusk_part)
+
+            color, radii, _, _, _ = rasterizer(
                 means3D = self.gaussians.xyz,
                 means2D = None,
-                shs = self.gaussians.sh,
-                colors_precomp = None,
+                shs = sh,
+                colors_precomp =colors,
                 opacities = self.gaussians.opacity,
                 scales = self.gaussians.scale,
                 rotations = self.gaussians.rot,
                 cov3D_precomp = None
             )
 
-        if self.render_mode != -1:
-            img = color.permute(1, 2, 0)
-            img = torch.concat([img, torch.ones_like(img[..., :1])], dim=-1)
-            img = img.contiguous()
-        else:
-            img = self.depth_to_grayscale(depth)
-
-            # img = visible_depth_gray[..., None].repeat(1, 1, 4)
-            # # alpha=1
-            # img[..., 3] = 1
-            # img = img.contiguous()
-
-            img = torch.concat([img, torch.ones_like(img[..., :1])], dim=-1)
-            img = img.contiguous()
+        # if self.render_mode != -1:
+        img = color.permute(1, 2, 0)
+        img = torch.concat([img, torch.ones_like(img[..., :1])], dim=-1)
+        img = img.contiguous()
+        # else:
+        #     img = self.depth_to_grayscale(depth, cutoff=15)
+        #
+        #     # img = visible_depth_gray[..., None].repeat(1, 1, 4)
+        #     # # alpha=1
+        #     # img[..., 3] = 1
+        #     # img = img.contiguous()
+        #
+        #     img = torch.concat([img, torch.ones_like(img[..., :1])], dim=-1)
+        #     img = img.contiguous()
 
 
         height, width = img.shape[:2]
