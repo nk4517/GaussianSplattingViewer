@@ -283,16 +283,17 @@ def main():
                 changed, g_render_mode = imgui.combo("shading", g_render_mode, g_render_mode_tables)
                 if changed:
                     g_renderer.set_render_mod(g_render_mode - 4)
-                
-                # sort button
-                if imgui.button(label='sort Gaussians'):
-                    g_renderer.sort_and_update(g_camera)
-                imgui.same_line()
-                changed, g_auto_sort = imgui.checkbox(
-                        "auto sort", g_auto_sort,
-                    )
-                if g_auto_sort:
-                    g_renderer.sort_and_update(g_camera)
+
+                if g_renderer_idx == BACKEND_OGL:
+                    # sort button
+                    if imgui.button(label='sort Gaussians'):
+                        g_renderer.sort_and_update(g_camera)
+                    imgui.same_line()
+                    changed, g_auto_sort = imgui.checkbox(
+                            "auto sort", g_auto_sort,
+                        )
+                    if g_auto_sort:
+                        g_renderer.sort_and_update(g_camera)
                 
                 if imgui.button(label='save image'):
                     width, height = glfw.get_framebuffer_size(window)
