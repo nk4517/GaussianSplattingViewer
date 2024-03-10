@@ -187,6 +187,10 @@ class CUDARenderer(GaussianRenderBase):
             raise RuntimeError("Unable to register opengl texture")
     
     def set_render_reso(self, w, h):
+        if w == 0 and h == 0:
+            # в win11 при сворачиавании окна приходит 0x0
+            # ничего перерендеривать не надо, всё равно не будет показываться.
+            return
         self.need_rerender = True
         self.raster_settings["image_height"] = int(h)
         self.raster_settings["image_width"] = int(w)
