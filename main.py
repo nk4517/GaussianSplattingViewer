@@ -5,6 +5,8 @@ import imgui
 import numpy as np
 import util
 import imageio
+
+from util import try_read_cameras
 import util_gau
 import tkinter as tk
 from tkinter import filedialog
@@ -37,6 +39,8 @@ g_show_help_win = True
 g_show_camera_win = False
 g_render_mode_tables = ["Gaussian Ball", "Flat Ball", "Billboard", "Depth", "SH:0", "SH:0~1", "SH:0~2", "SH:0~3 (default)"]
 g_render_mode = 7
+g_model_cameras: list | None = None
+g_cur_camera_idx: int = 0
 
 def impl_glfw_init():
     window_name = "NeUVF editor"
@@ -115,7 +119,7 @@ def window_resize_callback(window, width, height):
 def main():
     global g_camera, g_renderer, g_renderer_list, g_renderer_idx, g_scale_modifier, g_auto_sort, \
         g_show_control_win, g_show_help_win, g_show_camera_win, \
-        g_render_mode, g_render_mode_tables
+        g_render_mode, g_render_mode_tables, g_model_cameras, g_cur_camera_idx
         
     imgui.create_context()
     if args.hidpi:
@@ -199,12 +203,63 @@ def main():
                         )
                     if file_path:
                         try:
+                            try:
+                                g_model_cameras = try_read_cameras(file_path)
+                            except Exception as e:
+                                print(e)
+                                g_model_cameras = None
                             gaussians = util_gau.load_ply(file_path)
                             g_renderer.update_gaussian_data(gaussians)
                             g_renderer.sort_and_update(g_camera)
                         except RuntimeError as e:
                             pass
-                
+
+                if g_model_cameras:
+                    imgui.begin_group()
+                    imgui.text("Cam:")
+                    changed2 = imgui.button("prev")
+                    imgui.same_line()
+                    changed3 = imgui.button("next")
+                    imgui.same_line()
+                    cams = [c["img_name"] for c in g_model_cameras]
+                    changed1, g_cur_camera_idx = imgui.combo("idx", g_cur_camera_idx, cams)
+                    imgui.end_group()
+
+                    changed_c = changed1 | changed2 | changed3
+
+                    if changed2:
+                        g_cur_camera_idx -= 1
+                        if g_cur_camera_idx < 0:
+                            g_cur_camera_idx = 0
+
+                    elif changed3:
+                        g_cur_camera_idx += 1
+                        if g_cur_camera_idx >= len(g_model_cameras):
+                            g_cur_camera_idx = len(g_model_cameras) - 1
+
+
+                    if changed_c:
+                        cam_info = g_model_cameras[g_cur_camera_idx]
+
+                        g_camera.position[:] = cam_info["position"]
+
+                        R = cam_info["R"].numpy()
+
+                        # R_cv2gl = np.array([
+                        #     [1.0, 0.0, 0.0],
+                        #     [0.0, -1.0, 0.0],
+                        #     [0.0, 0.0, -1.0]
+                        # ], dtype=np.float32)
+
+                        R = R
+
+                        camera_direction = R @ np.array([0.0, 0.0, g_camera.target_dist], dtype=np.float32)
+                        g_camera.target[:] = g_camera.position + camera_direction
+
+                        g_camera.up = R[:3, 1] * -1
+
+                        g_camera.is_pose_dirty = True
+
                 # camera fov
                 changed, g_camera.fov_deg = imgui.slider_float(
                     "fov", g_camera.fov_deg, 2, 150, "fov = %.1f°"

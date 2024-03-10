@@ -1,9 +1,14 @@
+import json
 import math
+from pathlib import Path
 
 from OpenGL.GL import *
 import OpenGL.GL.shaders as shaders
 import numpy as np
 import glm
+
+import torch
+
 import ctypes
 
 class Camera:
@@ -354,3 +359,73 @@ def update_texture2d(img, texid, offset):
     )
 
 
+def try_read_cameras(ply_fullpath: str | Path):
+    # есть шансы, что .ply - это часть модели, и там есть камеры
+    # point_cloud/iteration_XXX/point_cloud.ply
+    # cameras.json
+    ply_fullpath = Path(ply_fullpath).absolute()
+    cameras_json_fpath1 = (ply_fullpath.parent.parent.parent / "cameras.json")
+    cameras_json_fpath2 = (ply_fullpath.parent / "cameras.json")
+    if cameras_json_fpath1.is_file():
+        cameras_json_fpath = cameras_json_fpath1
+    elif cameras_json_fpath2.is_file():
+        cameras_json_fpath = cameras_json_fpath2
+    else:
+        raise RuntimeError("no cameras.json found")
+
+    with open(cameras_json_fpath, "rt", encoding="utf-8") as fl:
+        cameras_data = json.load(fl)
+
+    for cam_info in cameras_data:
+
+        cx = cam_info["width"] / 2
+        cy = cam_info["height"] / 2
+
+        K = torch.eye(3, dtype=torch.float32)
+        K[0, 0] = cam_info["fx"]
+        K[1, 1] = cam_info["fy"]
+        K[0, 2] = cx
+        K[1, 2] = cy
+
+        R = torch.tensor(cam_info["rotation"], dtype=torch.float32)[None, ...]
+        C = torch.tensor(cam_info["position"], dtype=torch.float32)[None, ...]
+        t = -(R.inverse() @ C.mT).mT
+
+        cam_info["K"] = K
+        cam_info["R"] = R.squeeze()
+        cam_info["C"] = C.squeeze()
+        cam_info["t"] = t.squeeze()
+
+    return cameras_data
+
+    # like that
+    # {
+    #     'id': 0,
+    #     'img_name': '0000_cam0',
+    #     'width': 1907,
+    #     'height': 1272,
+    #     'position': [
+    #         -7.227473846344491,
+    #         0.36855735187729166,
+    #         -1.2154362267399894,
+    #     ],
+    #     'rotation': [
+    #         [
+    #             0.153722715673349,
+    #             0.035638178198492965,
+    #             0.987471137269694,
+    #         ],
+    #         [
+    #             0.1414186871240709,
+    #             0.9882679490055079,
+    #             -0.057682024067740166,
+    #         ],
+    #         [
+    #             -0.9779417577842325,
+    #             0.1485139091908218,
+    #             0.14687932856173289,
+    #         ],
+    #     ],
+    #     'fy': 2205.0608258885777,
+    #     'fx': 2182.50387833004,
+    # },
