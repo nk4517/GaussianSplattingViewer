@@ -1,3 +1,5 @@
+import math
+
 from OpenGL.GL import *
 import OpenGL.GL.shaders as shaders
 import numpy as np
@@ -32,7 +34,17 @@ class Camera:
         self.zoom_sensitivity = 0.08
         self.roll_sensitivity = 0.03
         self.target_dist = 3.
-    
+
+
+    @property
+    def fov_deg(self):
+        return math.degrees(self.fovy)
+
+    @fov_deg.setter
+    def fov_deg(self, value):
+        self.fovy = math.radians(value)
+
+
     def _global_rot_mat(self):
         x = np.array([1, 0, 0])
         z = np.cross(x, self.up)

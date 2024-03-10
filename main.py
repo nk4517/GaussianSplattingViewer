@@ -206,8 +206,8 @@ def main():
                             pass
                 
                 # camera fov
-                changed, g_camera.fovy = imgui.slider_float(
-                    "fov", g_camera.fovy, 0.001, np.pi - 0.001, "fov = %.3f"
+                changed, g_camera.fov_deg = imgui.slider_float(
+                    "fov", g_camera.fov_deg, 2, 150, "fov = %.1f°"
                 )
                 g_camera.is_intrin_dirty = changed
                 update_camera_intrin_lazy()
