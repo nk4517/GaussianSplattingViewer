@@ -3,6 +3,8 @@ Part of the code (CUDA and OpenGL memory transfer) is derived from https://githu
 '''
 from OpenGL import GL as gl
 import OpenGL.GL.shaders as shaders
+
+from colormaps111 import apply_colormap, cm_data_twilight, cm_data_dawn_part, cm_data_dusk_part
 import util
 import util_gau
 import numpy as np
@@ -157,6 +159,8 @@ class CUDARenderer(GaussianRenderBase):
         self.raster_settings["scale_modifier"] = float(modifier)
 
     def set_render_mod(self, mod: int):
+        print("set_render_mod", mod)
+        self.render_mode = mod
         self.need_rerender = True
 
     def set_gl_texture(self, h, w):
@@ -237,7 +241,7 @@ class CUDARenderer(GaussianRenderBase):
         rasterizer = GaussianRasterizer(raster_settings=raster_settings)
         # means2D = torch.zeros_like(self.gaussians.xyz, dtype=self.gaussians.xyz.dtype, requires_grad=False, device="cuda")
         with torch.no_grad():
-            img, radii, _, _, _ = rasterizer(
+            color, radii, depth, opacity, n_touched = rasterizer(
                 means3D = self.gaussians.xyz,
                 means2D = None,
                 shs = self.gaussians.sh,
@@ -248,9 +252,22 @@ class CUDARenderer(GaussianRenderBase):
                 cov3D_precomp = None
             )
 
-        img = img.permute(1, 2, 0)
-        img = torch.concat([img, torch.ones_like(img[..., :1])], dim=-1)
-        img = img.contiguous()
+        if self.render_mode != -1:
+            img = color.permute(1, 2, 0)
+            img = torch.concat([img, torch.ones_like(img[..., :1])], dim=-1)
+            img = img.contiguous()
+        else:
+            img = self.depth_to_grayscale(depth)
+
+            # img = visible_depth_gray[..., None].repeat(1, 1, 4)
+            # # alpha=1
+            # img[..., 3] = 1
+            # img = img.contiguous()
+
+            img = torch.concat([img, torch.ones_like(img[..., :1])], dim=-1)
+            img = img.contiguous()
+
+
         height, width = img.shape[:2]
         # transfer
         (err,) = cu.cudaGraphicsMapResources(1, self.cuda_image, cu.cudaStreamLegacy)
@@ -281,3 +298,18 @@ class CUDARenderer(GaussianRenderBase):
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.tex)
         gl.glBindVertexArray(self.vao)
         gl.glDrawArrays(gl.GL_TRIANGLES, 0, 3)
+
+    def depth_to_grayscale(self, depth, cutoff=30, gamma=5):
+        # inverted grayscale with very heavy gamma for near detalization
+        d = depth.squeeze()
+        img_gray = ((d / cutoff).clamp(0, 1)) ** (1/3)
+        img = apply_colormap(1-img_gray, cm_data_dusk_part)
+        img[d > cutoff, :] = 0
+        img[d == 0, :] = 0
+        # img[d < 0.01] = 0
+        return img
+
+        visible_depth_gray = (1 - (d / cutoff).clamp(0, 1)) ** gamma
+        visible_depth_gray[d > cutoff] = 0
+        visible_depth_gray[d == 0] = 0
+        return visible_depth_gray
