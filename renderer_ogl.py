@@ -79,6 +79,7 @@ except ImportError:
 class GaussianRenderBase:
     def __init__(self):
         self.gaussians = None
+        self.render_mode = 0
         self._reduce_updates = True
 
     @property
