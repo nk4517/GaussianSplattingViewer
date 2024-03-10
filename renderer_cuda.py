@@ -205,6 +205,7 @@ class CUDARenderer(GaussianRenderBase):
         self.raster_settings["viewmatrix"] = torch.tensor(view_matrix.T).float().cuda()
         self.raster_settings["campos"] = torch.tensor(camera.position).float().cuda()
         self.raster_settings["projmatrix"] = torch.tensor(proj.T).float().cuda()
+        self.raster_settings["projmatrix_raw"] = torch.tensor(proj.T).float().cuda()
 
     def update_camera_intrin(self, camera: util.Camera):
         self.need_rerender = True
@@ -212,6 +213,7 @@ class CUDARenderer(GaussianRenderBase):
         view_matrix[[0, 2], :] = -view_matrix[[0, 2], :]
         proj = camera.get_project_matrix() @ view_matrix
         self.raster_settings["projmatrix"] = torch.tensor(proj.T).float().cuda()
+        self.raster_settings["projmatrix_raw"] = torch.tensor(proj.T).float().cuda()
         hfovx, hfovy, focal = camera.get_htanfovxy_focal()
         self.raster_settings["tanfovx"] = hfovx
         self.raster_settings["tanfovy"] = hfovy
@@ -235,7 +237,7 @@ class CUDARenderer(GaussianRenderBase):
         rasterizer = GaussianRasterizer(raster_settings=raster_settings)
         # means2D = torch.zeros_like(self.gaussians.xyz, dtype=self.gaussians.xyz.dtype, requires_grad=False, device="cuda")
         with torch.no_grad():
-            img, radii = rasterizer(
+            img, radii, _, _, _ = rasterizer(
                 means3D = self.gaussians.xyz,
                 means2D = None,
                 shs = self.gaussians.sh,
