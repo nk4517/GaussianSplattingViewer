@@ -96,7 +96,7 @@ class GaussianRenderBase:
     def update_gaussian_data(self, gaus: util_gau.GaussianData):
         raise NotImplementedError()
     
-    def sort_and_update(self):
+    def sort_and_update(self, camera: util.Camera):
         raise NotImplementedError()
 
     def set_scale_modifier(self, modifier: float):
