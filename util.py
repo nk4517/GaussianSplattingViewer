@@ -9,10 +9,10 @@ import ctypes
 class Camera:
     def __init__(self, h, w):
         self.znear = 0.01
-        self.zfar = 100
+        self.zfar = 1000
         self.h = h
         self.w = w
-        self.fovy = np.pi / 2
+        self.fovy = np.pi / 6
         self.position = np.array([0.0, 0.0, 3.0]).astype(np.float32)
         self.target = np.array([0.0, 0.0, 0.0]).astype(np.float32)
         self.up = np.array([0.0, -1.0, 0.0]).astype(np.float32)
